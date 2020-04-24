@@ -27,8 +27,8 @@
 
 package speedith.core.lang.reader;
 
-import org.antlr.runtime.BaseRecognizer;
-import org.antlr.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.RecognitionException;
 
 import static speedith.core.i18n.Translations.i18n;
 
@@ -41,7 +41,7 @@ import static speedith.core.i18n.Translations.i18n;
 public class ParseException extends RuntimeException {
 
     // <editor-fold defaultstate="collapsed" desc="Fields">
-    private BaseRecognizer origin;
+    private Recognizer origin;
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="Constructors">
@@ -60,7 +60,7 @@ public class ParseException extends RuntimeException {
      * @param origin the recogniser (either the parser or the lexer) that has
      * thrown the exception.
      */
-    public ParseException(String description, RecognitionException ex, BaseRecognizer origin) {
+    public ParseException(String description, RecognitionException ex, Recognizer origin) {
         super(description, ex);
         if (ex == null) {
             throw new IllegalArgumentException(i18n("GERR_NULL_ARGUMENT", "ex"));
@@ -84,7 +84,7 @@ public class ParseException extends RuntimeException {
      * @return the recogniser (either the parser or the lexer) that has
      * thrown the exception.
      */
-    public BaseRecognizer getOrigin() {
+    public Recognizer getOrigin() {
         return origin;
     }
     // </editor-fold>
