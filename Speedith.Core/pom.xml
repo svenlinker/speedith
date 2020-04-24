@@ -16,8 +16,8 @@
   <dependencies>
     <dependency>
       <groupId>org.antlr</groupId>
-      <artifactId>antlr</artifactId>
-      <version>3.3</version>
+      <artifactId>antlr4</artifactId>
+      <version>4.8</version>
     </dependency>
 
     <dependency>

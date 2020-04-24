@@ -27,10 +27,10 @@
 
 package speedith.core.lang.reader;
 
-import org.antlr.runtime.ANTLRInputStream;
-import org.antlr.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.*;
-import speedith.core.lang.reader.SpiderDiagramsParser.spiderDiagram_return;
+//import speedith.core.lang.reader.SpiderDiagramsParser.spiderDiagram_return;
 import speedith.core.reasoning.GoalsTest;
 
 import static org.junit.Assert.assertNotNull;
@@ -69,7 +69,7 @@ public class SpiderDiagramsParserTest {
     public void testSpiderDiagram() throws Exception {
         SpiderDiagramsLexer lexer = new SpiderDiagramsLexer(new ANTLRInputStream(GoalsTest.getSpiderDiagramTestFile("/speedith/core/lang/reader/ParserExample1.sd")));
         SpiderDiagramsParser parser = new SpiderDiagramsParser(new CommonTokenStream(lexer));
-        spiderDiagram_return sd = parser.spiderDiagram();
+        SpiderDiagramsParser.SpiderDiagramContext sd = parser.spiderDiagram();
     }
 
     /**
@@ -80,7 +80,7 @@ public class SpiderDiagramsParserTest {
     public void testSpiderDiagram1() throws Exception {
         SpiderDiagramsLexer lexer = new SpiderDiagramsLexer(new ANTLRInputStream(GoalsTest.getSpiderDiagramTestFile("/speedith/core/lang/reader/ParserExample1_1.sd")));
         SpiderDiagramsParser parser = new SpiderDiagramsParser(new CommonTokenStream(lexer));
-        spiderDiagram_return sd = null;
+        SpiderDiagramsParser.SpiderDiagramContext sd = null;
         try {
             sd = parser.spiderDiagram();
             fail("This test should throw an exception.");

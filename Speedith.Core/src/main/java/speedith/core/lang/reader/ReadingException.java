@@ -26,11 +26,11 @@
  */
 package speedith.core.lang.reader;
 
-import org.antlr.runtime.MissingTokenException;
-import org.antlr.runtime.RecognitionException;
-import org.antlr.runtime.Token;
-import org.antlr.runtime.UnwantedTokenException;
-import org.antlr.runtime.tree.CommonTree;
+import org.antlr.v4.runtime.InputMismatchException;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import static speedith.core.i18n.Translations.i18n;
 
@@ -39,12 +39,12 @@ import static speedith.core.i18n.Translations.i18n;
  * from a string (i.e.: during parsing, translating, and semantic checking).
  * @author Matej Urbas [matej.urbas@gmail.com]
  */
-public class ReadingException extends Exception {
+public class ReadingException extends RuntimeException {
 
     // <editor-fold defaultstate="collapsed" desc="Fields">
     private int lineNumber = -1;
     private int charIndex = -2;
-    private CommonTree node;
+    private ParseTree node;
     private Token token;
     // </editor-fold>
 
@@ -78,14 +78,12 @@ public class ReadingException extends Exception {
      * @param cause the cause for this exception.
      */
     public ReadingException(String msg, ParseException cause) {
-        super(msg + " (" + cause.getOrigin().getErrorMessage(cause.getCause(), cause.getOrigin().getTokenNames()) + ")", cause.getCause());
-        if (cause.getCause() instanceof MissingTokenException) {
-            MissingTokenException mte = (MissingTokenException) cause.getCause();
-            this.token = mte.inserted instanceof Token ? ((Token) mte.inserted) : null;
-        } else if (cause.getCause() instanceof UnwantedTokenException) {
-            this.token = ((UnwantedTokenException) cause.getCause()).getUnexpectedToken();
+        super(msg + " (" + cause.getOrigin().getErrorHeader((cause.getCause())) + ")", cause.getCause());
+        if (cause.getCause() instanceof InputMismatchException) {
+            InputMismatchException mte = (InputMismatchException) cause.getCause();
+            this.token = mte.getOffendingToken();
         } else {
-            this.token = cause.getCause().token;
+            this.token = cause.getCause().getOffendingToken();
         }
     }
 
@@ -109,7 +107,7 @@ public class ReadingException extends Exception {
      * @param msg the detail message.
      * @param node the AST node where the exception occurred.
      */
-    public ReadingException(String msg, CommonTree node) {
+    public ReadingException(String msg, ParseTree node) {
         super(msg);
         this.node = node;
     }
@@ -130,11 +128,12 @@ public class ReadingException extends Exception {
         if (charIndex < -1) {
             if (getToken() != null) {
                 charIndex = getToken().getCharPositionInLine();
-            } else if (getNode() != null) {
-                charIndex = getNode().getCharPositionInLine();
-            } else if (getCause() instanceof RecognitionException) {
-                charIndex = ((RecognitionException) getCause()).charPositionInLine;
             }
+            //else if (getNode() != null) {
+            //    charIndex = getNode().;
+           // } else if (getCause() instanceof RecognitionException) {
+           //     charIndex = ((RecognitionException) getCause()).charPositionInLine;
+           // }
         }
         return charIndex;
     }
@@ -151,11 +150,12 @@ public class ReadingException extends Exception {
         if (lineNumber < 0) {
             if (getToken() != null) {
                 lineNumber = getToken().getLine();
-            } else if (getNode() != null) {
-                lineNumber = getNode().getLine();
-            } else if (getCause() instanceof RecognitionException) {
-                lineNumber = ((RecognitionException) getCause()).line;
             }
+            //else if (getNode() != null) {
+            //    lineNumber = getNode().getLine();
+            //} else if (getCause() instanceof RecognitionException) {
+            //    lineNumber = ((RecognitionException) getCause()).line;
+          //  }
         }
         return lineNumber;
     }
@@ -164,7 +164,7 @@ public class ReadingException extends Exception {
      * Returns the AST node where the exception occurred.
      * @return the AST node where the exception occurred.
      */
-    public CommonTree getNode() {
+    public ParseTree getNode() {
         return node;
     }
 
@@ -172,7 +172,7 @@ public class ReadingException extends Exception {
      * Sets the AST node where the exception occurred.
      * @param node the AST node where the exception occurred.
      */
-    public void setNode(CommonTree node) {
+    public void setNode(ParserRuleContext node)  {
         this.node = node;
     }
 

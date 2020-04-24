@@ -26,12 +26,16 @@
  */
 package speedith.core.lang.reader;
 
-import org.antlr.runtime.*;
-import org.antlr.runtime.tree.CommonTree;
+import org.antlr.v4.runtime.*;
+//import org.antlr.runtime.tree.CommonTree;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import speedith.core.lang.*;
-import speedith.core.lang.reader.SpiderDiagramsParser.list_return;
-import speedith.core.lang.reader.SpiderDiagramsParser.spiderDiagram_return;
+//import speedith.core.lang.reader.SpiderDiagramsParser.list_return;
+//import speedith.core.lang.reader.SpiderDiagramsParser.spiderDiagram_return;
 
+import javax.swing.text.html.parser.Element;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,7 +78,7 @@ public final class SpiderDiagramsReader {
      * representation could not be translated or is malformed.
      */
     public static SpiderDiagram readSpiderDiagram(String input) throws ReadingException {
-        return readSpiderDiagram(new ANTLRStringStream(input));
+        return readSpiderDiagram(new ANTLRInputStream(input));
     }
 
     /**
@@ -90,7 +94,7 @@ public final class SpiderDiagramsReader {
      * @throws IOException thrown if the input could not be read.
      */
     public static SpiderDiagram readSpiderDiagram(Reader reader) throws ReadingException, IOException {
-        return readSpiderDiagram(new ANTLRReaderStream(reader));
+        return readSpiderDiagram(new ANTLRInputStream(reader));
     }
 
     /**
@@ -127,7 +131,7 @@ public final class SpiderDiagramsReader {
      * @throws IOException thrown if the input could not be read.
      */
     public static SpiderDiagram readSpiderDiagram(InputStream input, String encoding) throws ReadingException, IOException {
-        return readSpiderDiagram(new ANTLRInputStream(input, encoding));
+        return readSpiderDiagram(new ANTLRInputStream(input));
     }
 
     /**
@@ -166,8 +170,8 @@ public final class SpiderDiagramsReader {
     public static SpiderDiagram readSpiderDiagram(File inputFile, String encoding) throws ReadingException, IOException {
         return readSpiderDiagram(new ANTLRFileStream(inputFile.getPath(), encoding));
     }
-
-    /**
+/*
+    *//**
      * Reads a region from the string.
      * <p>An example of a region:
      * <pre>[(["A", "B"], []), (["C"], ["D", "E"])]</pre>
@@ -175,13 +179,14 @@ public final class SpiderDiagramsReader {
      * @param input a region string.
      * @return the parsed and translated {@link Region region object}.
      * @throws ReadingException thrown if the input could not have been read.
-     */
+     *//*
     public static Region readRegion(String input) throws ReadingException {
-        return readElement(new ANTLRStringStream(input), new ElementReader<Region>() {
+        return readElement(new ANTLRInputStream(input), new ElementReader<Region>() {
 
             @Override
             public Region readElement(SpiderDiagramsParser parser) throws ReadingException, RecognitionException {
-                list_return list = parser.list();
+                ParserRuleContext list = parser.list();
+
                 if (list == null || list.tree == null) {
                     throw new ReadingException(i18n("ERR_READING_INVALID_REGION"));
                 }
@@ -189,22 +194,29 @@ public final class SpiderDiagramsReader {
             }
         });
     }
-    // </editor-fold>
+    // </editor-fold>*/
 
     // <editor-fold defaultstate="collapsed" desc="Translation Methods (from the AST to SpiderDiagrams)">
     private static SpiderDiagram readSpiderDiagram(CharStream chrStream) throws ReadingException {
         SpiderDiagramsLexer lexer = new SpiderDiagramsLexer(chrStream);
         SpiderDiagramsParser parser = new SpiderDiagramsParser(new CommonTokenStream(lexer));
-        try {
+//        SpiderDiagramTranslator translator = new SpiderDiagramTranslator();
+        return SDTranslator.Instance.visit(parser.start());
+//         return translator.convertParseTree(parser);
+/*        try {
+
+
             return toSpiderDiagram(parser.spiderDiagram());
         } catch (RecognitionException re) {
             throw new ReadingException(i18n("ERR_PARSE_INVALID_SYNTAX"), re);
         } catch (ParseException pe) {
             throw new ReadingException(pe.getMessage(), pe);
         }
+
+ */
     }
 
-    private static interface ElementReader<T> {
+/*    private static interface ElementReader<T> {
 
         public T readElement(SpiderDiagramsParser parser) throws ReadingException, RecognitionException;
     }
@@ -227,10 +239,11 @@ public final class SpiderDiagramsReader {
         }
         return SDTranslator.Instance.fromASTNode(spiderDiagram.tree);
     }
+*/
+    private abstract static class ElementTranslator<T> extends SpiderDiagramsBaseVisitor<T>{
 
-    private abstract static class ElementTranslator<T> {
 
-        public abstract T fromASTNode(CommonTree treeNode) throws ReadingException;
+//        public abstract T fromASTNode(CommonTree treeNode) throws ReadingException;
     }
 
     private static class ZoneTranslator extends ElementTranslator<Zone> {
@@ -244,6 +257,15 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        public Zone visitSortedList(SpiderDiagramsParser.SortedListContext ctx) {
+            ArrayList<ArrayList<String>> inOutContours = translator.visit(ctx);
+            if (inOutContours == null || inOutContours.size() != 2) {
+                throw new ReadingException(i18n("ERR_TRANSLATE_ZONE"), ctx);
+            }
+            return new Zone(inOutContours.get(0), inOutContours.get(1));
+        }
+
+/*        @Override
         public Zone fromASTNode(CommonTree treeNode) throws ReadingException {
             ArrayList<ArrayList<String>> inOutContours = translator.fromASTNode(treeNode);
             if (inOutContours == null || inOutContours.size() != 2) {
@@ -251,6 +273,8 @@ public final class SpiderDiagramsReader {
             }
             return new Zone(inOutContours.get(0), inOutContours.get(1));
         }
+
+ */
     }
 
     private static class HabitatTranslator extends ElementTranslator<Map<String, Region>> {
@@ -264,6 +288,23 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        public Map<String, Region> visitList(SpiderDiagramsParser.ListContext ctx) {
+            ArrayList<ArrayList<Object>> rawHabitats = regionListTranslator.visit(ctx);
+            if (rawHabitats == null || rawHabitats.size() < 1) {
+                return null;
+            }
+            HashMap<String, Region> habitats = new HashMap<>();
+            for (ArrayList<Object> rawHabitat : rawHabitats) {
+                if (rawHabitat.size() == 2) {
+                    habitats.put((String) rawHabitat.get(0), new Region((ArrayList<Zone>) rawHabitat.get(1)));
+                }
+            }
+            return habitats;
+
+ //           return super.visitSortedList(ctx);
+        }
+
+/*        @Override
         @SuppressWarnings("unchecked")
         public Map<String, Region> fromASTNode(CommonTree treeNode) throws ReadingException {
             ArrayList<ArrayList<Object>> rawHabitats = regionListTranslator.fromASTNode(treeNode);
@@ -278,13 +319,27 @@ public final class SpiderDiagramsReader {
             }
             return habitats;
         }
+
+ */
     }
+
 
     private static class StringTranslator extends ElementTranslator<String> {
 
         public static final StringTranslator Instance = new StringTranslator();
 
         @Override
+        public String visitLanguageElement(SpiderDiagramsParser.LanguageElementContext ctx) {
+            if (ctx.getStart().getType() == SpiderDiagramsParser.STRING) {
+                String str = ctx.getStart().getText();
+                if (str != null && str.length() >= 2) {
+                    return str.substring(1, str.length() - 1);
+                }
+            }
+            throw new ReadingException(i18n("ERR_TRANSLATE_INVALID_STRING"), ctx);
+        }
+
+/*        @Override
         public String fromASTNode(CommonTree treeNode) throws ReadingException {
             if (treeNode.token != null && treeNode.token.getType() == SpiderDiagramsParser.STRING) {
                 String str = treeNode.token.getText();
@@ -293,7 +348,7 @@ public final class SpiderDiagramsReader {
                 }
             }
             throw new ReadingException(i18n("ERR_TRANSLATE_INVALID_STRING"), treeNode);
-        }
+        } */
     }
 
     private static class IDTranslator extends ElementTranslator<String> {
@@ -301,12 +356,20 @@ public final class SpiderDiagramsReader {
         public static final IDTranslator Instance = new IDTranslator();
 
         @Override
+        public String visitTerminal(TerminalNode node) {
+            if (node.getSymbol().getType() == SpiderDiagramsParser.ID) {
+                return node.getSymbol().getText();
+            }
+            throw new ReadingException(i18n("ERR_TRANSLATE_INVALID_ID"), node);
+        }
+
+/*        @Override
         public String fromASTNode(CommonTree treeNode) throws ReadingException {
             if (treeNode.token != null && treeNode.token.getType() == SpiderDiagramsParser.ID) {
                 return treeNode.token.getText();
             }
             throw new ReadingException(i18n("ERR_TRANSLATE_INVALID_ID"), treeNode);
-        }
+        }*/
     }
 
     private static abstract class GeneralSDTranslator<V extends SpiderDiagram> extends ElementTranslator<V> {
@@ -346,6 +409,16 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        public V visitSpiderDiagram(SpiderDiagramsParser.SpiderDiagramContext ctx) {
+            Map<String, Entry<Object, ParseTree>> attrs = keyValueMapTranslator.visit(ctx);
+                if (areMandatoryPresent(attrs)) {
+                return createSD(attrs, ctx);
+            } else {
+                throw new ReadingException(i18n("ERR_TRANSLATE_MISSING_ELEMENTS", keyValueMapTranslator.typedValueTranslators.keySet()), ctx);
+            }
+        }
+
+/*        @Override
         public V fromASTNode(CommonTree treeNode) throws ReadingException {
             Map<String, Entry<Object, CommonTree>> attrs = keyValueMapTranslator.fromASTNode(treeNode);
             if (areMandatoryPresent(attrs)) {
@@ -355,7 +428,9 @@ public final class SpiderDiagramsReader {
             }
         }
 
-        abstract V createSD(Map<String, Entry<Object, CommonTree>> attributes, CommonTree mainNode) throws ReadingException;
+ */
+
+        abstract V createSD(Map<String, Entry<Object, ParseTree >> attributes, SpiderDiagramsParser.SpiderDiagramContext mainNode) throws ReadingException;
     }
 
     private static class SDTranslator extends ElementTranslator<SpiderDiagram> {
@@ -366,6 +441,27 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        public SpiderDiagram visitSpiderDiagram(SpiderDiagramsParser.SpiderDiagramContext ctx) {
+            switch (ctx.getStart().getType()) {
+                case SpiderDiagramsParser.SD_BINARY:
+                    return CompoundSDTranslator.BinaryTranslator.visit(ctx);
+                case SpiderDiagramsParser.SD_UNARY:
+                    return CompoundSDTranslator.UnaryTranslator.visit(ctx);
+                case SpiderDiagramsParser.SD_COMPOUND:
+                    return CompoundSDTranslator.CompoundTranslator.visit(ctx);
+
+                case SpiderDiagramsParser.SD_PRIMARY:
+                    return PrimarySDTranslator.Instance.visit(ctx);
+                case SpiderDiagramsParser.SD_NULL:
+                    return NullSDTranslator.Instance.visit(ctx);
+                default:
+                    throw new ReadingException(i18n("ERR_UNKNOWN_SD_TYPE"));
+            }
+
+//            return super.visitSpiderDiagram(ctx);
+        }
+
+/*        @Override
         public SpiderDiagram fromASTNode(CommonTree treeNode) throws ReadingException {
             switch (treeNode.token.getType()) {
                 case SpiderDiagramsParser.SD_BINARY:
@@ -382,6 +478,8 @@ public final class SpiderDiagramsReader {
                     throw new ReadingException(i18n("ERR_UNKNOWN_SD_TYPE"));
             }
         }
+
+ */
     }
 
     private static class CompoundSDTranslator extends GeneralSDTranslator<CompoundSpiderDiagram> {
@@ -397,28 +495,29 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
-        CompoundSpiderDiagram createSD(Map<String, Entry<Object, CommonTree>> attributes, CommonTree mainNode) throws ReadingException {
+        CompoundSpiderDiagram createSD(Map<String, Entry<Object, ParseTree>> attributes, SpiderDiagramsParser.SpiderDiagramContext mainNode) throws ReadingException {
             String operator = (String) attributes.remove(SDTextOperatorAttribute).getKey();
             ArrayList<SpiderDiagram> operands = new ArrayList<>();
             int i = 1;
-            Entry<Object, CommonTree> curSD, lastSD = null;
+            Entry<Object, ParseTree> curSD, lastSD = null;
             while ((curSD = attributes.remove(CompoundSpiderDiagram.SDTextArgAttribute + i++)) != null && curSD.getKey() instanceof SpiderDiagram) {
                 operands.add((SpiderDiagram) curSD.getKey());
                 lastSD = curSD;
             }
             if (curSD != null) {
-                throw new ReadingException(i18n("GERR_ILLEGAL_STATE"), (CommonTree) curSD.getValue().getChild(0));
+                throw new ReadingException(i18n("GERR_ILLEGAL_STATE"), (ParseTree) curSD.getValue().getChild(0));
             }
             if (!attributes.isEmpty()) {
-                throw new ReadingException(i18n("ERR_TRANSLATE_UNKNOWN_ATTRIBUTES", attributes.keySet()), (CommonTree) attributes.values().iterator().next().getValue().getChild(0));
+                throw new ReadingException(i18n("ERR_TRANSLATE_UNKNOWN_ATTRIBUTES", attributes.keySet()), (ParseTree) attributes.values().iterator().next().getValue().getChild(0));
             }
             try {
                 return SpiderDiagrams.createCompoundSD(operator, operands, false);
             } catch (Exception e) {
-                throw new ReadingException(e.getLocalizedMessage(), lastSD == null ? mainNode : (CommonTree) lastSD.getValue().getChild(0));
+                throw new ReadingException(e.getLocalizedMessage(), lastSD == null ? mainNode : (ParseTree) lastSD.getValue().getChild(0));
             }
         }
     }
+
 
     private static class PrimarySDTranslator extends GeneralSDTranslator<PrimarySpiderDiagram> {
 
@@ -434,8 +533,8 @@ public final class SpiderDiagramsReader {
 
         @Override
         @SuppressWarnings("unchecked")
-        PrimarySpiderDiagram createSD(Map<String, Entry<Object, CommonTree>> attributes, CommonTree mainNode) throws ReadingException {
-            Entry<Object, CommonTree> presentZonesAttribute = attributes.get(SDTextPresentZonesAttribute);
+        PrimarySpiderDiagram createSD(Map<String, Entry<Object, ParseTree>> attributes, SpiderDiagramsParser.SpiderDiagramContext mainNode) throws ReadingException {
+            Entry<Object, ParseTree> presentZonesAttribute = attributes.get(SDTextPresentZonesAttribute);
             return SpiderDiagrams.createPrimarySDNoCopy((Collection<String>) attributes.get(SDTextSpidersAttribute).getKey(),
                     (Map<String, Region>) attributes.get(SDTextHabitatsAttribute).getKey(),
                     (Collection<Zone>) attributes.get(SDTextShadedZonesAttribute).getKey(),
@@ -452,7 +551,7 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
-        NullSpiderDiagram createSD(Map<String, Entry<Object, CommonTree>> attributes, CommonTree mainNode) throws ReadingException {
+        NullSpiderDiagram createSD(Map<String, Entry<Object, ParseTree>> attributes, SpiderDiagramsParser.SpiderDiagramContext mainNode) throws ReadingException {
             return NullSpiderDiagram.getInstance();
         }
     }
@@ -470,6 +569,53 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        protected ArrayList<V> aggregateResult(ArrayList<V> aggregate, ArrayList<V> nextResult) {
+            if (aggregate == null) {
+                aggregate = new ArrayList<>();
+            }
+            if (nextResult != null) {
+                aggregate.addAll(nextResult);
+            }
+            return aggregate;
+        }
+
+        @Override
+    public ArrayList<V> visitList(SpiderDiagramsParser.ListContext ctx)  {
+ //           if (ctx.getStart().getType() == headTokenType) {
+                checkNode(ctx);
+                if (ctx.languageElement().size() < 1) {
+                    return null;
+                }
+                ArrayList<V> objs = new ArrayList<>(ctx.languageElement().size());
+                int i = 0;
+                for (SpiderDiagramsParser.LanguageElementContext obj : ctx.languageElement()) {
+                    objs.add(fromASTChildAt(i++, obj));
+                }
+                return objs;
+ //           }
+ //       throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n(i18n("ERR_TRANSLATE_LIST_OR_SLIST"))), ctx);
+    }
+
+    @Override
+    public ArrayList<V> visitSortedList(SpiderDiagramsParser.SortedListContext ctx) {
+  //      if (ctx.getStart().getType() == headTokenType) {
+            checkNode(ctx);
+            if (ctx.languageElement().size() < 1) {
+                return null;
+            }
+            ArrayList<V> objs = new ArrayList<>(ctx.languageElement().size());
+            int i = 0;
+            for (SpiderDiagramsParser.LanguageElementContext obj : ctx.languageElement()) {
+                objs.add(fromASTChildAt(i++, obj));
+            }
+            return objs;
+  //      }
+ //       throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n(i18n("ERR_TRANSLATE_LIST_OR_SLIST"))), ctx);
+    }
+
+
+
+/*    @Override
         public ArrayList<V> fromASTNode(CommonTree treeNode) throws ReadingException {
             if (treeNode.token != null && treeNode.token.getType() == headTokenType) {
                 checkNode(treeNode);
@@ -485,8 +631,8 @@ public final class SpiderDiagramsReader {
             }
             throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n(i18n("ERR_TRANSLATE_LIST_OR_SLIST"))), treeNode);
         }
-
-        protected abstract V fromASTChildAt(int i, CommonTree treeNode) throws ReadingException;
+*/
+        protected abstract V fromASTChildAt(int i, ParserRuleContext treeNode) throws ReadingException;
 
         /**
          * Checks whether the node (which should be a list) is okay for
@@ -496,7 +642,7 @@ public final class SpiderDiagramsReader {
          * @exception ReadingException this exception should be thrown if the
          * AST node is not valid in some sense.
          */
-        protected void checkNode(CommonTree treeNode) throws ReadingException {
+        protected void checkNode(ParserRuleContext treeNode) throws ReadingException {
         }
     }
 
@@ -518,8 +664,8 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
-        protected V fromASTChildAt(int i, CommonTree treeNode) throws ReadingException {
-            return valueTranslator.fromASTNode(treeNode);
+        protected V fromASTChildAt(int i, ParserRuleContext treeNode) throws ReadingException {
+            return valueTranslator. visit(treeNode);
         }
     }
 
@@ -548,26 +694,45 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
-        protected V fromASTChildAt(int i, CommonTree treeNode) throws ReadingException {
+        protected V fromASTChildAt(int i, ParserRuleContext treeNode) throws ReadingException {
             if (i >= valueTranslators.size()) {
                 throw new ReadingException(i18n("ERR_TRANSLATE_TOO_MANY_ELMNTS"), treeNode);
             }
-            return valueTranslators.get(i).fromASTNode(treeNode);
+            return valueTranslators.get(i).visit(treeNode);
         }
 
         @Override
-        protected void checkNode(CommonTree treeNode) throws ReadingException {
-            if (treeNode.getChildCount() != valueTranslators.size()) {
+        protected void checkNode(ParserRuleContext treeNode) throws ReadingException {
+
+ /*           if (treeNode instanceof SpiderDiagramsParser.ListContext) {
+                SpiderDiagramsParser.ListContext ctx = (SpiderDiagramsParser.ListContext) treeNode;
+                if (ctx.languageElement().size() != valueTranslators.size()) {
+                    throw new ReadingException(i18n("ERR_TRANSLATE_ELEMENTS_COUNT", valueTranslators.size(), treeNode.getChildCount()), treeNode);
+                }
+            }
+            if (treeNode instanceof SpiderDiagramsParser.SortedListContext) {
+                SpiderDiagramsParser.SortedListContext ctx = (SpiderDiagramsParser.SortedListContext) treeNode;
+                if (ctx.languageElement().size() != valueTranslators.size()) {
+                    throw new ReadingException(i18n("ERR_TRANSLATE_ELEMENTS_COUNT", valueTranslators.size(), treeNode.getChildCount()), treeNode);
+                }
+            }
+
+  */
+
+
+/*            if (treeNode.getChildCount() != valueTranslators.size()) {
                 throw new ReadingException(i18n("ERR_TRANSLATE_ELEMENTS_COUNT", valueTranslators.size(), treeNode.getChildCount()), treeNode);
             }
+
+ */
         }
     }
 
-    private static class GeneralMapTranslator<V> extends ElementTranslator<Map<String, Entry<V, CommonTree>>> {
+    private static class GeneralMapTranslator<V> extends ElementTranslator<Map<String, Entry<V, ParseTree>>> {
 
         private Map<String, ElementTranslator<? extends V>> typedValueTranslators;
         private ElementTranslator<? extends V> defaultValueTranslator;
-        private int headTokenType = SpiderDiagramsParser.DICT;
+        private int headTokenType = SpiderDiagramsParser.LDICT;
 
         public GeneralMapTranslator(Map<String, ElementTranslator<? extends V>> typedValueTranslators) {
             this(typedValueTranslators, null);
@@ -578,7 +743,7 @@ public final class SpiderDiagramsReader {
         }
 
         public GeneralMapTranslator(Map<String, ElementTranslator<? extends V>> typedValueTranslators, ElementTranslator<? extends V> defaultValueTranslator) {
-            this(SpiderDiagramsParser.DICT, typedValueTranslators, defaultValueTranslator);
+            this(SpiderDiagramsParser.LDICT, typedValueTranslators, defaultValueTranslator);
         }
 
         public GeneralMapTranslator(int headTokenType, Map<String, ElementTranslator<? extends V>> typedValueTranslators, ElementTranslator<? extends V> defaultElements) {
@@ -591,6 +756,68 @@ public final class SpiderDiagramsReader {
         }
 
         @Override
+        protected Map<String, Entry<V, ParseTree>> aggregateResult(Map<String, Entry<V, ParseTree>> aggregate, Map<String, Entry<V, ParseTree>> nextResult) {
+            if (aggregate == null) {
+                aggregate = new HashMap<>();
+            }
+            if (nextResult != null) {
+                aggregate.putAll(nextResult);
+            }
+            return aggregate;
+        }
+
+        @Override
+        public Map<String, Entry<V, org.antlr.v4.runtime.tree.ParseTree>> visitKeyValue(SpiderDiagramsParser.KeyValueContext ctx) {
+    //        if (ctx.getStart().getType() == headTokenType) {
+                if (ctx.getChildCount() < 1) {
+                    return null;
+                }
+                HashMap<String, Entry<V,  ParseTree>> kVals = new HashMap<>();
+                String key = IDTranslator.Instance.visit(ctx.ID());
+                ElementTranslator<? extends V> translator = null;
+                if (typedValueTranslators != null) {
+                    translator = typedValueTranslators.get(key);
+                }
+                if (translator == null) {
+                    if (defaultValueTranslator != null) {
+                        translator = defaultValueTranslator;
+                    } else {
+                        throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_KEY_VALUE", key, typedValueTranslators == null ? "" : typedValueTranslators.keySet()), ctx.ID());
+                    }
+                }
+                V value = translator.visit(ctx.languageElement());
+                kVals.put(key, new SimpleEntry<>(value, (ParseTree) ctx));
+                return kVals;
+ //               for (SpiderDiagramsParser.LanguageElementContext node : ctx.languageElement()) {
+
+                    //CommonTree node = (CommonTree) obj;
+/*                    if (node. != null && node.gettoken.getType() == SpiderDiagramsParser.PAIR && node.getChildCount() == 2) {
+                        String key = IDTranslator.Instance.fromASTNode((CommonTree) node.getChild(0));
+                        ElementTranslator<? extends V> translator = null;
+                        if (typedValueTranslators != null) {
+                            translator = typedValueTranslators.get(key);
+                        }
+                        if (translator == null) {
+                            if (defaultValueTranslator != null) {
+                                translator = defaultValueTranslator;
+                            } else {
+                                throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_KEY_VALUE", key, typedValueTranslators == null ? "" : typedValueTranslators.keySet()), (CommonTree) node.getChild(0));
+                            }
+                        }
+                        V value = translator.fromASTNode((CommonTree) node.getChild(1));
+                        kVals.put(key, new SimpleEntry<>(value, node));
+                    } else {
+                        throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n("TRANSLATE_KEY_VALUE_PAIR")), node);
+                    }
+                }
+                */
+//                return kVals;
+      //      }
+//            throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n(i18n("ERR_TRANSLATE_LIST_OR_SLIST"))), ctx);
+        }
+
+
+/*        @Override
         public Map<String, Entry<V, CommonTree>> fromASTNode(CommonTree treeNode) throws ReadingException {
             if (treeNode.token != null && treeNode.token.getType() == headTokenType) {
                 if (treeNode.getChildCount() < 1) {
@@ -622,6 +849,8 @@ public final class SpiderDiagramsReader {
             }
             throw new ReadingException(i18n("ERR_TRANSLATE_UNEXPECTED_ELEMENT", i18n(i18n("ERR_TRANSLATE_LIST_OR_SLIST"))), treeNode);
         }
+ */
     }
+
     // </editor-fold>
 }

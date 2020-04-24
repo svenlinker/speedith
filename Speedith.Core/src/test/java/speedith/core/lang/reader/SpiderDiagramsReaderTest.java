@@ -296,7 +296,7 @@ public class SpiderDiagramsReaderTest {
         }
     }
 
-    @Test
+/*    @Test
     public void testReadRegion_1() throws ReadingException {
         Region r = checkRegionExample(REGION_EXAMPLE_1);
         Region expected = new Region(Zone.fromInContours("A").withOutContours("B"), Zone.fromInContours("C").withOutContours("D"));
@@ -344,7 +344,7 @@ public class SpiderDiagramsReaderTest {
             TestSpiderDiagrams.readSpiderDiagramFromSDTFile(i);
         }
     }
-
+*/
     private SpiderDiagram checkSDExample(String example, boolean isValid) throws ReadingException {
         SpiderDiagram sd = SpiderDiagramsReader.readSpiderDiagram(example);
         String str1 = sd.toString();
@@ -408,7 +408,7 @@ public class SpiderDiagramsReaderTest {
         assertTrue(null == csd.getSubDiagramAt(2));
     }
 
-    private Region checkRegionExample(String example) throws ReadingException {
-        return SpiderDiagramsReader.readRegion(example);
-    }
+//    private Region checkRegionExample(String example) throws ReadingException {
+ //       return  SpiderDiagramsReader.readRegion(example);
+ //   }
 }
